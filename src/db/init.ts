@@ -1,12 +1,13 @@
 import * as SQLite from 'expo-sqlite';
 
-export async function initDB() {
-    const db = SQLite.openDatabaseSync('gastos.db');
+export async function initDatabase() {
+  const db = await SQLite.openDatabaseAsync('gastos.db');
 
-    // PRAGMA EXPLICIT OBRIGATÓRIO (Épico 1)
-    db.execSync('PRAGMA foreign_keys = ON;');
+  // PRAGMA foreign_keys = ON garante a integridade referencial nas entidades
+  await db.execAsync('PRAGMA foreign_keys = ON;');
 
-    db.execSync(`
+  // Criação das tabelas
+  await db.execAsync(`
     CREATE TABLE IF NOT EXISTS Category (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -14,9 +15,7 @@ export async function initDB() {
       color TEXT NOT NULL,
       is_active INTEGER DEFAULT 1
     );
-  `);
 
-    db.execSync(`
     CREATE TABLE IF NOT EXISTS CaptureRecord (
       id TEXT PRIMARY KEY,
       capture_type TEXT NOT NULL,
@@ -27,9 +26,7 @@ export async function initDB() {
       payload_format TEXT DEFAULT NULL,
       failure_reason TEXT DEFAULT NULL
     );
-  `);
 
-    db.execSync(`
     CREATE TABLE IF NOT EXISTS ProcessingSnapshot (
       id TEXT PRIMARY KEY,
       capture_record_id TEXT NOT NULL REFERENCES CaptureRecord(id) ON DELETE CASCADE,
@@ -43,9 +40,7 @@ export async function initDB() {
       suggested_merchant_confidence TEXT DEFAULT NULL,
       warnings TEXT DEFAULT NULL
     );
-  `);
 
-    db.execSync(`
     CREATE TABLE IF NOT EXISTS Expense (
       id TEXT PRIMARY KEY,
       capture_record_id TEXT NOT NULL REFERENCES CaptureRecord(id) ON DELETE RESTRICT,
@@ -60,5 +55,5 @@ export async function initDB() {
     );
   `);
 
-    return db;
+  return db;
 }

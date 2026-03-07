@@ -9,7 +9,7 @@ interface CaptureActionSheetProps {
 
 export function CaptureActionSheet({ visible, onClose }: CaptureActionSheetProps) {
     const handleOptionSelect = (option: string) => {
-        console.log(`Selected: ${option}`);
+        console.log(`selected ${option}`);
         onClose();
     };
 
@@ -33,7 +33,7 @@ export function CaptureActionSheet({ visible, onClose }: CaptureActionSheetProps
                         <View style={[styles.iconContainer, { backgroundColor: '#E3F2FD' }]}>
                             <Ionicons name="camera-outline" size={24} color="#1976D2" />
                         </View>
-                        <Text style={styles.optionText}>Escanear Recibo</Text>
+                        <Text style={styles.optionText}>📸 Escanear Recibo</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -44,7 +44,7 @@ export function CaptureActionSheet({ visible, onClose }: CaptureActionSheetProps
                         <View style={[styles.iconContainer, { backgroundColor: '#E8F5E9' }]}>
                             <Ionicons name="qr-code-outline" size={24} color="#388E3C" />
                         </View>
-                        <Text style={styles.optionText}>Ler QR Code Fiscal</Text>
+                        <Text style={styles.optionText}>🔲 Ler QR Code Fiscal</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -55,7 +55,7 @@ export function CaptureActionSheet({ visible, onClose }: CaptureActionSheetProps
                         <View style={[styles.iconContainer, { backgroundColor: '#F3E5F5' }]}>
                             <Ionicons name="create-outline" size={24} color="#7B1FA2" />
                         </View>
-                        <Text style={styles.optionText}>Digitar Manualmente</Text>
+                        <Text style={styles.optionText}>✍️ Digitar Manualmente</Text>
                     </TouchableOpacity>
                 </Pressable>
             </Pressable>
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         padding: 24,
-        paddingBottom: 40, // Extra padding for safe area
+        paddingBottom: 40,
     },
     dragHandle: {
         width: 40,

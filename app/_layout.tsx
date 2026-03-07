@@ -1,8 +1,8 @@
 import { Stack } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { initDB } from '../src/db/init';
-import { seedDB } from '../src/db/seed';
+import { initDatabase } from '../src/db/init';
+import { seedCategoriesIfEmpty } from '../src/db/seed';
 
 type AppState = 'LOADING' | 'READY' | 'ERROR';
 
@@ -15,8 +15,8 @@ export default function RootLayout() {
       setAppState('LOADING');
       setErrorMsg(null);
 
-      const db = await initDB();
-      await seedDB(db);
+      const db = await initDatabase();
+      await seedCategoriesIfEmpty(db);
 
       setAppState('READY');
     } catch (error: any) {
@@ -44,7 +44,7 @@ export default function RootLayout() {
       <View style={styles.centerContainer}>
         <Text style={styles.errorTitle}>Falha crítica ao iniciar banco local</Text>
         <Text style={styles.errorSubtitle}>{errorMsg}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={bootstrap}>
+        <TouchableOpacity style={styles.retryButton} onPress={bootstrap} activeOpacity={0.8}>
           <Text style={styles.retryText}>Tentar Novamente</Text>
         </TouchableOpacity>
       </View>
@@ -52,8 +52,8 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
     </Stack>
   );
 }
