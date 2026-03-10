@@ -47,23 +47,22 @@ export default function ReviewScreen() {
 
                 if (record.capture_type === 'QR_CODE') {
                     const snapshot = await getProcessingSnapshotByCaptureRecordId(record.id);
-                    if (snapshot && snapshot.extracted_data) {
+                    if (snapshot) {
                         try {
-                            const data = JSON.parse(snapshot.extracted_data);
-                            if (data.amount) setAmount(data.amount.toFixed(2));
-                            if (data.date) {
-                                setDate(new Date(data.date).toISOString().split('T')[0]);
+                            if (snapshot.suggested_amount) setAmount(snapshot.suggested_amount.toFixed(2));
+                            if (snapshot.suggested_date) {
+                                setDate(new Date(snapshot.suggested_date).toISOString().split('T')[0]);
                             }
-                            if (data.merchant_name) setMerchantName(data.merchant_name);
+                            if (snapshot.suggested_merchant) setMerchantName(snapshot.suggested_merchant);
 
-                            if (!data.amount) {
-                                setQrWarning('Leitura concluída, mas o valor não pôde ser extraído offline da URL. Por favor, digite manualmente.');
+                            if (snapshot.warnings) {
+                                setQrWarning(snapshot.warnings);
                             }
                         } catch (e) {
-                            setQrWarning('Erro ao decodificar dados do QR offline. Por favor, preencha manualmente.');
+                            setQrWarning('Erro na leitura de datas da base offline. Preencha manualmente.');
                         }
                     } else {
-                        setQrWarning('O QR Code capturado não possuía formato extraível reconhecido localmente.');
+                        setQrWarning('Processamento de QR incompleto ou não finalizado pela Câmera.');
                     }
                 }
 

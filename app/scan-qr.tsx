@@ -40,16 +40,23 @@ export default function ScanQrScreen() {
         try {
             // 1. Snapshot do Capture Record originado como QR
             const record = await createQrCaptureRecord(data, 'URL');
+            await updateCaptureRecordStatus(record.id, 'normalized');
 
             // 2. Extrai sugestoes offline ingênuas
             const suggestions = extractQrSuggestions(data);
+            await updateCaptureRecordStatus(record.id, 'extracted');
 
-            // 3. Persiste o processamento offline
+            // 3. Persiste o processamento offline com os campos corretos
+            const hasAmount = suggestions.amount !== undefined;
+            const warningMsg = hasAmount ? null : 'Leitura concluída, mas o valor não pôde ser extraído offline da matriz QR. Por favor, digite manualmente.';
+
             await createProcessingSnapshot(
                 record.id,
-                'completed',
                 data,
-                Object.keys(suggestions).length > 0 ? JSON.stringify(suggestions) : null
+                suggestions.date ?? null,
+                suggestions.amount ?? null,
+                suggestions.merchant_name ?? null,
+                warningMsg
             );
 
             // 4. Libera para Review

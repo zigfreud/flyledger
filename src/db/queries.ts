@@ -193,26 +193,36 @@ export async function getCaptureRecordById(id: string): Promise<CaptureRecord | 
 
 export async function createProcessingSnapshot(
     captureRecordId: string,
-    status: 'pending' | 'processing' | 'completed' | 'failed',
-    rawPayload: string | null,
-    extractedData: string | null
+    normalizedText: string | null,
+    suggestedDate: number | null,
+    suggestedAmount: number | null,
+    suggestedMerchant: string | null,
+    warnings: string | null
 ): Promise<void> {
     const db = DBManager.getDB();
     const newId = generateUUID();
     const now = Date.now();
 
     await db.runAsync(
-        `INSERT INTO ProcessingSnapshot (id, capture_record_id, status, error_details, raw_payload, extracted_data, confidence_amount, confidence_merchant, confidence_date, created_at, updated_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO ProcessingSnapshot (
+            id, capture_record_id, processed_at, normalized_text, 
+            suggested_date, suggested_date_confidence, 
+            suggested_amount, suggested_amount_confidence, 
+            suggested_merchant, suggested_merchant_confidence, 
+            warnings
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-            newId, captureRecordId, status, null, rawPayload, extractedData,
-            null, null, null, now, now
+            newId, captureRecordId, now, normalizedText,
+            suggestedDate, suggestedDate ? 'MEDIUM' : null,
+            suggestedAmount, suggestedAmount ? 'MEDIUM' : null,
+            suggestedMerchant, suggestedMerchant ? 'LOW' : null,
+            warnings
         ]
     );
 }
 
 export async function getProcessingSnapshotByCaptureRecordId(captureRecordId: string): Promise<any | null> {
     const db = DBManager.getDB();
-    const row = await db.getFirstAsync<any>('SELECT * FROM ProcessingSnapshot WHERE capture_record_id = ? ORDER BY created_at DESC LIMIT 1;', [captureRecordId]);
+    const row = await db.getFirstAsync<any>('SELECT * FROM ProcessingSnapshot WHERE capture_record_id = ? ORDER BY processed_at DESC LIMIT 1;', [captureRecordId]);
     return row || null;
 }
