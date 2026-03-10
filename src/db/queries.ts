@@ -1,4 +1,4 @@
-import { CaptureRecord, CaptureRecordStatus, Category, Expense } from '../types/models';
+import { CaptureRecord, CaptureRecordStatus, Category, Expense, ProcessingSnapshot } from '../types/models';
 import DBManager from './database';
 
 function generateUUID() {
@@ -75,7 +75,7 @@ export async function discardCaptureRecord(id: string): Promise<void> {
     }
 }
 
-export async function finalizeManualCaptureAsExpense(expense: Omit<Expense, 'id' | 'created_at' | 'updated_at'>): Promise<Expense> {
+export async function finalizeCaptureAsExpense(expense: Omit<Expense, 'id' | 'created_at' | 'updated_at'>): Promise<Expense> {
     const db = DBManager.getDB();
     const newId = generateUUID();
     const now = Date.now();
@@ -110,9 +110,9 @@ export async function finalizeManualCaptureAsExpense(expense: Omit<Expense, 'id'
 }
 
 /**
- * USO RESERVADO: Esta função não é usada no fluxo MANUAL do V1, 
- * pois o salvamento manual ocorre via transação atômica em finalizeManualCaptureAsExpense.
- * Mantida explicitamente para uso futuro nos fluxos complexos de QR Code e OCR.
+ * USO RESERVADO: Esta função não é usada nos fluxos locais da V1, 
+ * pois o salvamento ocorre via transação atômica em finalizeCaptureAsExpense.
+ * Mantida explicitamente para uso futuro nos fluxos complexos assíncronos de OCR.
  */
 export async function createExpense(expense: Omit<Expense, 'id' | 'created_at' | 'updated_at'>): Promise<Expense> {
     const db = DBManager.getDB();
@@ -221,8 +221,8 @@ export async function createProcessingSnapshot(
     );
 }
 
-export async function getProcessingSnapshotByCaptureRecordId(captureRecordId: string): Promise<any | null> {
+export async function getProcessingSnapshotByCaptureRecordId(captureRecordId: string): Promise<ProcessingSnapshot | null> {
     const db = DBManager.getDB();
-    const row = await db.getFirstAsync<any>('SELECT * FROM ProcessingSnapshot WHERE capture_record_id = ? ORDER BY processed_at DESC LIMIT 1;', [captureRecordId]);
+    const row = await db.getFirstAsync<ProcessingSnapshot>('SELECT * FROM ProcessingSnapshot WHERE capture_record_id = ? ORDER BY processed_at DESC LIMIT 1;', [captureRecordId]);
     return row || null;
 }

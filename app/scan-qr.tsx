@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
     createProcessingSnapshot,
     createQrCaptureRecord,
@@ -97,9 +97,18 @@ export default function ScanQrScreen() {
                     </View>
                 </View>
 
-                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <Text style={styles.backText}>Cancelar</Text>
-                </TouchableOpacity>
+                {isProcessing && (
+                    <View style={styles.loadingOverlay}>
+                        <ActivityIndicator size="large" color="#4CAF50" />
+                        <Text style={styles.loadingText}>Processando QR...</Text>
+                    </View>
+                )}
+
+                {!isProcessing && (
+                    <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                        <Text style={styles.backText}>Cancelar</Text>
+                    </TouchableOpacity>
+                )}
             </CameraView>
         </View>
     );
@@ -146,5 +155,13 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         borderRadius: 24,
     },
-    backText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
+    backText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10
+    },
+    loadingText: { color: '#FFF', marginTop: 16, fontSize: 16, fontWeight: 'bold' }
 });

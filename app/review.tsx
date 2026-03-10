@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
     discardCaptureRecord,
-    finalizeManualCaptureAsExpense,
+    finalizeCaptureAsExpense,
     getActiveCategories,
     getCaptureRecordById,
     getExpenseById,
@@ -49,13 +49,20 @@ export default function ReviewScreen() {
                     const snapshot = await getProcessingSnapshotByCaptureRecordId(record.id);
                     if (snapshot) {
                         try {
-                            if (snapshot.suggested_amount) setAmount(snapshot.suggested_amount.toFixed(2));
+                            if (snapshot.suggested_amount) {
+                                setAmount(snapshot.suggested_amount.toFixed(2));
+                            } else {
+                                setQrWarning('Nenhum valor financeiro extraído offline na URL capturada.');
+                            }
+
                             if (snapshot.suggested_date) {
                                 setDate(new Date(snapshot.suggested_date).toISOString().split('T')[0]);
                             }
-                            if (snapshot.suggested_merchant) setMerchantName(snapshot.suggested_merchant);
+                            if (snapshot.suggested_merchant) {
+                                setMerchantName(snapshot.suggested_merchant);
+                            }
 
-                            if (snapshot.warnings) {
+                            if (snapshot.warnings && snapshot.suggested_amount) {
                                 setQrWarning(snapshot.warnings);
                             }
                         } catch (e) {
@@ -109,7 +116,7 @@ export default function ReviewScreen() {
             }
 
             if (mode === 'create') {
-                await finalizeManualCaptureAsExpense({
+                await finalizeCaptureAsExpense({
                     capture_record_id: captureRecordId!,
                     category_id: categoryId,
                     amount: numAmount,
