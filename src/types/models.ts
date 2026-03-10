@@ -6,11 +6,13 @@ export interface Category {
   is_active: number;
 }
 
+export type CaptureRecordStatus = 'captured' | 'normalized' | 'extracted' | 'pending_review' | 'validated' | 'discarded' | 'failed';
+
 export interface CaptureRecord {
   id: string;
   capture_type: 'IMAGE' | 'QR_CODE' | 'MANUAL';
   captured_at: number;
-  status: 'captured' | 'normalized' | 'extracted' | 'pending_review' | 'validated' | 'discarded' | 'failed';
+  status: CaptureRecordStatus;
   media_local_path: string | null;
   raw_payload: string | null;
   payload_format: 'URL' | 'TEXT' | null;

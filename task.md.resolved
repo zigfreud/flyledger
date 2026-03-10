@@ -1,0 +1,19 @@
+# MVP Gastos App - Epic 2
+
+Epic 2: Database Hardening and Manual Expense Flow
+
+- [x] Task 2.1: Database Hardening & Central Access (Parte A)
+  - [x] Refactor database connection to a central singleton or provider ([src/db/database.ts](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/database.ts))
+  - [x] Update [src/db/init.ts](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/init.ts) with `CHECK` constraints (`capture_type`, `status`, confidences)
+  - [x] Implement robust DAO functions in [src/db/queries.ts](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts) ([getActiveCategories](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#12-16), [createManualCaptureRecord](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#17-40), [updateCaptureRecordStatus](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#41-45), [createExpense](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#46-62), [listExpensesOrderedByDate](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#80-110), [getExpenseById](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#111-116), [updateExpense](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#63-79))
+- [x] Task 2.2: Routing and UI Architecture (Parte B)
+  - [x] Create [app/review.tsx](file:///C:/Users/kizin/OneDrive/Documentos/gastos/app/review.tsx) parameterized form (Create & Edit Modes)
+  - [x] Update [CaptureActionSheet](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/components/CaptureActionSheet.tsx#12-81) to trigger [createManualCaptureRecord](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#17-40) and navigate to `/review?mode=create&captureRecordId=xxx`
+- [x] Task 2.3: Manual Flow Logic ('Create' Mode)
+  - [x] Boot review form with today's date and autofocus on Amount
+  - [x] Save Action: create Expense, update Record to `validated`, redirect
+  - [x] Discard Action: update Record to `discarded`, redirect, DO NOT create Expense
+- [x] Task 2.4: Editing Logic ('Edit' Mode)
+  - [x] Fetch and display expenses in [app/(tabs)/index.tsx](file:///c:/Users/kizin/OneDrive/Documentos/gastos/app/%28tabs%29/index.tsx)
+  - [x] Route to `/review?mode=edit&expenseId=xxx` when clicking an expense
+  - [x] Save Action: update Expense fields and `updated_at`, redirect

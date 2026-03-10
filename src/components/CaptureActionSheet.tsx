@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { createManualCaptureRecord } from '../db/queries';
 
 interface CaptureActionSheetProps {
@@ -21,7 +21,8 @@ export function CaptureActionSheet({ visible, onClose }: CaptureActionSheetProps
                     pathname: '/review',
                     params: { mode: 'create', captureRecordId: record.id }
                 });
-            } catch (err) {
+            } catch (err: any) {
+                Alert.alert('Erro ao processar captura', err.message || 'Falha desconhecida no armazenamento nativo.');
                 console.error("Erro ao criar CaptureRecord", err);
             }
         } else {

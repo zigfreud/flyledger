@@ -2,10 +2,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
-    createExpense,
+    discardCaptureRecord,
+    finalizeManualCaptureAsExpense,
     getActiveCategories,
     getExpenseById,
-    updateCaptureRecordStatus,
     updateExpense
 } from '../src/db/queries';
 import { Category } from '../src/types/models';
@@ -76,9 +76,13 @@ export default function ReviewScreen() {
             }
 
             const parsedDate = new Date(date).getTime();
+            if (isNaN(parsedDate)) {
+                Alert.alert('Data Inválida', 'A data informada não possui um formato correto numérico.');
+                return;
+            }
 
             if (mode === 'create') {
-                await createExpense({
+                await finalizeManualCaptureAsExpense({
                     capture_record_id: captureRecordId!,
                     category_id: categoryId,
                     amount: numAmount,
@@ -87,7 +91,6 @@ export default function ReviewScreen() {
                     description: description || null,
                     retained_image_path: null
                 });
-                await updateCaptureRecordStatus(captureRecordId!, 'validated');
             } else {
                 await updateExpense(expenseId!, {
                     category_id: categoryId,
@@ -108,14 +111,11 @@ export default function ReviewScreen() {
     const handleDiscard = async () => {
         if (mode === 'create') {
             try {
-                await updateCaptureRecordStatus(captureRecordId!, 'discarded');
+                await discardCaptureRecord(captureRecordId!);
                 router.replace('/(tabs)');
             } catch (err: any) {
                 Alert.alert('Erro ao Descartar', err.message);
             }
-        } else {
-            // Em modo edit não se descarta o capture record, apenas fecha-se a tela
-            router.back();
         }
     };
 
@@ -198,11 +198,17 @@ export default function ReviewScreen() {
             </ScrollView>
 
             <View style={styles.footer}>
-                <TouchableOpacity style={[styles.btn, styles.btnDiscard]} onPress={handleDiscard}>
-                    <Text style={styles.btnDiscardText}>{mode === 'create' ? 'Descartar' : 'Cancelar'}</Text>
-                </TouchableOpacity>
+                {mode === 'create' ? (
+                    <TouchableOpacity style={[styles.btn, styles.btnDiscard]} onPress={handleDiscard}>
+                        <Text style={styles.btnDiscardText}>Descartar</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={() => router.back()}>
+                        <Text style={styles.btnCancelText}>Voltar</Text>
+                    </TouchableOpacity>
+                )}
                 <TouchableOpacity style={[styles.btn, styles.btnSave]} onPress={handleSave}>
-                    <Text style={styles.btnSaveText}>Salvar</Text>
+                    <Text style={styles.btnSaveText}>{mode === 'create' ? 'Salvar' : 'Salvar Alterações'}</Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -235,6 +241,8 @@ const styles = StyleSheet.create({
     btn: { flex: 1, padding: 16, borderRadius: 8, alignItems: 'center', marginHorizontal: 4 },
     btnDiscard: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#D32F2F' },
     btnDiscardText: { color: '#D32F2F', fontWeight: 'bold', fontSize: 16 },
+    btnCancel: { backgroundColor: '#E0E0E0', borderWidth: 0 },
+    btnCancelText: { color: '#424242', fontWeight: 'bold', fontSize: 16 },
     btnSave: { backgroundColor: '#2196F3' },
     btnSaveText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
     errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginBottom: 24 },
