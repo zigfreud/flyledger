@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { createManualCaptureRecord } from '../db/queries';
 
 interface CaptureActionSheetProps {
     visible: boolean;
@@ -8,9 +10,23 @@ interface CaptureActionSheetProps {
 }
 
 export function CaptureActionSheet({ visible, onClose }: CaptureActionSheetProps) {
-    const handleOptionSelect = (option: string) => {
-        console.log(`selected ${option}`);
+    const router = useRouter();
+
+    const handleOptionSelect = async (option: string) => {
         onClose();
+        if (option === 'MANUAL') {
+            try {
+                const record = await createManualCaptureRecord();
+                router.push({
+                    pathname: '/review',
+                    params: { mode: 'create', captureRecordId: record.id }
+                });
+            } catch (err) {
+                console.error("Erro ao criar CaptureRecord", err);
+            }
+        } else {
+            console.log(`selected ${option}`);
+        }
     };
 
     return (

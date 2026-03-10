@@ -1,0 +1,115 @@
+import { CaptureRecord, Category, Expense } from '../types/models';
+import DBManager from './database';
+
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+export async function getActiveCategories(): Promise<Category[]> {
+    const db = DBManager.getDB();
+    return await db.getAllAsync<Category>('SELECT * FROM Category WHERE is_active = 1 ORDER BY name ASC;');
+}
+
+export async function createManualCaptureRecord(): Promise<CaptureRecord> {
+    const db = DBManager.getDB();
+    const newRecord: CaptureRecord = {
+        id: generateUUID(),
+        capture_type: 'MANUAL',
+        captured_at: Date.now(),
+        status: 'pending_review',
+        media_local_path: null,
+        raw_payload: null,
+        payload_format: null,
+        failure_reason: null
+    };
+
+    await db.runAsync(
+        `INSERT INTO CaptureRecord (id, capture_type, captured_at, status, media_local_path, raw_payload, payload_format, failure_reason) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            newRecord.id, newRecord.capture_type, newRecord.captured_at, newRecord.status,
+            newRecord.media_local_path, newRecord.raw_payload, newRecord.payload_format, newRecord.failure_reason
+        ]
+    );
+    return newRecord;
+}
+
+export async function updateCaptureRecordStatus(id: string, status: string): Promise<void> {
+    const db = DBManager.getDB();
+    await db.runAsync('UPDATE CaptureRecord SET status = ? WHERE id = ?;', [status, id]);
+}
+
+export async function createExpense(expense: Omit<Expense, 'id' | 'created_at' | 'updated_at'>): Promise<Expense> {
+    const db = DBManager.getDB();
+    const newId = generateUUID();
+    const now = Date.now();
+
+    await db.runAsync(
+        `INSERT INTO Expense (id, capture_record_id, category_id, amount, date, merchant_name, description, retained_image_path, created_at, updated_at) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            newId, expense.capture_record_id, expense.category_id, expense.amount, expense.date,
+            expense.merchant_name, expense.description, expense.retained_image_path, now, now
+        ]
+    );
+
+    return { ...expense, id: newId, created_at: now, updated_at: now } as Expense;
+}
+
+export async function updateExpense(id: string, updates: Partial<Omit<Expense, 'id' | 'capture_record_id' | 'created_at'>>): Promise<void> {
+    const db = DBManager.getDB();
+    const now = Date.now();
+
+    // Constroi campos de update dinamicamente
+    const entries = Object.entries(updates).filter(([_, value]) => value !== undefined);
+    if (entries.length === 0) return;
+
+    const setClauses = entries.map(([key]) => `${key} = ?`).join(', ');
+    const values = entries.map(([_, value]) => value);
+
+    await db.runAsync(
+        `UPDATE Expense SET ${setClauses}, updated_at = ? WHERE id = ?;`,
+        [...values, now, id]
+    );
+}
+
+export async function listExpensesOrderedByDate(): Promise<(Expense & { category: Category })[]> {
+    const db = DBManager.getDB();
+    // Relacionamento com Category via JOIN
+    const result = await db.getAllAsync<any>(`
+    SELECT e.*, c.name as category_name, c.icon as category_icon, c.color as category_color 
+    FROM Expense e
+    LEFT JOIN Category c ON e.category_id = c.id
+    ORDER BY e.date DESC, e.created_at DESC;
+  `);
+
+    return result.map(row => ({
+        id: row.id,
+        capture_record_id: row.capture_record_id,
+        category_id: row.category_id,
+        amount: row.amount,
+        date: row.date,
+        merchant_name: row.merchant_name,
+        description: row.description,
+        retained_image_path: row.retained_image_path,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        category: {
+            id: row.category_id,
+            name: row.category_name,
+            icon: row.category_icon,
+            color: row.category_color,
+            is_active: 1
+        }
+    }));
+}
+
+export async function getExpenseById(id: string): Promise<Expense | null> {
+    const db = DBManager.getDB();
+    const row = await db.getFirstAsync<Expense>('SELECT * FROM Expense WHERE id = ?;', [id]);
+    return row || null;
+}

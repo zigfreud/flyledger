@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import DBManager from '../src/db/database';
 import { initDatabase } from '../src/db/init';
 import { seedCategoriesIfEmpty } from '../src/db/seed';
 
@@ -15,7 +16,8 @@ export default function RootLayout() {
       setAppState('LOADING');
       setErrorMsg(null);
 
-      const db = await initDatabase();
+      const db = await DBManager.init();
+      await initDatabase(db);
       await seedCategoriesIfEmpty(db);
 
       setAppState('READY');
