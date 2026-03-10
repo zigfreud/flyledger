@@ -85,6 +85,11 @@ export async function finalizeManualCaptureAsExpense(expense: Omit<Expense, 'id'
     return { ...expense, id: newId, created_at: now, updated_at: now } as Expense;
 }
 
+/**
+ * USO RESERVADO: Esta função não é usada no fluxo MANUAL do V1, 
+ * pois o salvamento manual ocorre via transação atômica em finalizeManualCaptureAsExpense.
+ * Mantida explicitamente para uso futuro nos fluxos complexos de QR Code e OCR.
+ */
 export async function createExpense(expense: Omit<Expense, 'id' | 'created_at' | 'updated_at'>): Promise<Expense> {
     const db = DBManager.getDB();
     const newId = generateUUID();
@@ -153,5 +158,11 @@ export async function listExpensesOrderedByDate(): Promise<(Expense & { category
 export async function getExpenseById(id: string): Promise<Expense | null> {
     const db = DBManager.getDB();
     const row = await db.getFirstAsync<Expense>('SELECT * FROM Expense WHERE id = ?;', [id]);
+    return row || null;
+}
+
+export async function getCaptureRecordById(id: string): Promise<CaptureRecord | null> {
+    const db = DBManager.getDB();
+    const row = await db.getFirstAsync<CaptureRecord>('SELECT * FROM CaptureRecord WHERE id = ?;', [id]);
     return row || null;
 }

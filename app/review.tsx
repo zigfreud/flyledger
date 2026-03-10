@@ -5,6 +5,7 @@ import {
     discardCaptureRecord,
     finalizeManualCaptureAsExpense,
     getActiveCategories,
+    getCaptureRecordById,
     getExpenseById,
     updateExpense
 } from '../src/db/queries';
@@ -39,6 +40,9 @@ export default function ReviewScreen() {
 
             if (mode === 'create') {
                 if (!captureRecordId) throw new Error('ID de captura não fornecido.');
+                const record = await getCaptureRecordById(captureRecordId as string);
+                if (!record) throw new Error('Registro de captura não encontrado ou já processado.');
+
                 // In create, initial state defaults (amount='', date=today) are already set
                 setLoading(false);
             } else if (mode === 'edit') {

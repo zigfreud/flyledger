@@ -1,0 +1,102 @@
+# Patch de Estabilização (Pré-Epic 3)
+
+Este plano traça as correções arquiteturais e de integridade para estabilizar o fluxo manual antes de prosseguirmos com os próximos épicos, atendendo a todos os requisitos solicitados.
+
+## 1. Arquivos Exatos Que Serão Alterados
+1. **[src/types/models.ts](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/types/models.ts)**: Extração do tipo [CaptureRecordStatus](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/types/models.ts#9-10) para uso isolado e importação nos DAOs.
+2. **[src/db/queries.ts](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts)**: Reescrita do DAO para uso de transações, criação do método [finalizeManualCaptureAsExpense](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#54-87), [discardCaptureRecord](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#46-53), tipagem estrita no [updateCaptureRecordStatus](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#41-45), e correção no mock da categoria do [listExpenses](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#122-152).
+3. **[app/review.tsx](file:///C:/Users/kizin/OneDrive/Documentos/gastos/app/review.tsx)**: Ajuste das validações da Data (lidando com strings vazias e `NaN`), substituição das chamadas duplas no Salvar pela chamada Transacional única, uso do método encapsulado de descarte, e adaptação semântica/visual dos botões no modo Edit.
+4. **[src/components/CaptureActionSheet.tsx](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/components/CaptureActionSheet.tsx)**: Inclusão de um bloco `try/catch` robusto com uso de `Alert.alert` caso [createManualCaptureRecord](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#17-40) falhe estourando erro do SQLite.
+
+## 2. Funções Novas ou Refatoradas
+- **Novas**:
+  - `type CaptureRecordStatus = 'captured' | 'normalized' | 'extracted' | 'pending_review' | 'validated' | 'discarded' | 'failed';` (Tipagem forte em [models.ts](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/types/models.ts) para ser exportada).
+  - [finalizeManualCaptureAsExpense(expense: Omit<...>): Promise<void>](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#54-87) -> Substitui a criação isolada do Expense unindo a atualização do status em uma **Transação Atômica**.
+  - [discardCaptureRecord(id: string): Promise<void>](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#46-53) -> Chamada encapsulada para descarte, jogando um *throw Error* se não encontrar linhas modificadas (caso de ID fantasma).
+- **Refatoradas**:
+  - [updateCaptureRecordStatus(id, status: CaptureRecordStatus)](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#41-45) agora força o casting do status literal no Typescript.
+  - [listExpensesOrderedByDate()](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#122-152) agora não embute "1" no `is_active` das Categorias e mapeia os dados devolvidos na view do SQLite.
+
+## 3. Como Ficará a Transação no DAO
+Utilizaremos chamadas seriais no SQLite da seguinte maneira em [queries.ts](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts):
+```typescript
+export async function finalizeManualCaptureAsExpense(expense: Omit<Expense, 'id' | 'created_at' | 'updated_at'>): Promise<void> {
+  const db = DBManager.getDB();
+  const newId = generateUUID();
+  const now = Date.now();
+
+  await db.execAsync('BEGIN TRANSACTION;');
+  try {
+    await db.runAsync(
+      \`INSERT INTO Expense (id, capture_record_id, category_id, amount, date, merchant_name, description, retained_image_path, created_at, updated_at) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\`,
+      [newId, expense.capture_record_id, expense.category_id, expense.amount, expense.date, expense.merchant_name, expense.description, expense.retained_image_path, now, now]
+    );
+
+    await db.runAsync('UPDATE CaptureRecord SET status = ? WHERE id = ?;', ['validated', expense.capture_record_id]);
+
+    await db.execAsync('COMMIT;');
+  } catch (error) {
+    await db.execAsync('ROLLBACK;');
+    throw error;
+  }
+}
+```
+Isso garante 100% de estabilidade; a despesa jamais existirá em caso de contenção de disco no exato ms da troca do Status.
+
+## 4. Como Ficará a UX do Modo Edit
+Na tela [review.tsx](file:///C:/Users/kizin/OneDrive/Documentos/gastos/app/review.tsx), a esteira inferior de botões deixará de ser idêntica nos modos *create* e *edit*, extinguindo qualquer viés e risco de o usuário achar que está jogando a conta no lixo:
+- **Se `mode === 'create'`**:
+  - Botão Outline Vermelho "Descartar" -> Chama a DAO correta [discardCaptureRecord](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#46-53).
+  - Botão Sólido Azul "Salvar".
+- **Se `mode === 'edit'`**:
+  - Botão Sólido Cinza-Neutro "Voltar" (Substituindo o antigo "Cancelar" outline de borda vermelha/fina que remetia à exclusão). Simplesmente dá um `router.back()`.
+  - Botão Sólido Azul "Salvar Alterações" mudando a cópia legível na UI para expressar uma modificação e não uma criação nascente. 
+
+A data no submit (tanto Create quanto Edit) sofrerá Parse (`const parsed = new Date(date).getTime(); if (isNaN(parsed)) return alert();`). Somente fluirá se for um Number inteiro.
+
+## 5. Checklist Manual de Validação
+
+1. **Criação Atômica OK**: Pressionar (+) "Manual", inserir 10 Reais. Salvar. Ir na SQLite View externa ao App e conferir se o Capture Record consta verdadeiramente modificado para *validated* em conjunto com a nova row *Expense*.
+2. **Crash Transacional Resiliente**: Se por algum motivo o Dev alterar dinamicamente na UI o UUID, forçando chave estrangeira inexistente, ao clicar em "Salvar", um Alert explodirá, retornaremos à aba Histórico, mas o Banco de Dados voltará ao estado original pré-clique. Sem linhas quebradas.
+3. **Data Inválida Blindada**: Digitar `2024-AB-XY` no campo de data e apertar Salvar. O sistema fará um Alert visual informando a má formatação invés de despachar lixo nulo silencioso ao `.db`.
+4. **Descarte Limpo**: Apertar "Descartar" no fluxo Create irá executar a unitária [discardCaptureRecord](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#46-53) invés da poluição anterior direta na UI.
+5. **Teste UX (Edit mode)**: Clicar sobre a Despesa recém salva. Não haverá rastro da cor vermelha ou texto "Descartar", apenas um simpático "Voltar" do lado do "Salvar Alterações".
+6. **Robustez da Action Sheet**: Mudar o nome do DB para um arquivo corrompido, fechar e abrir action sheet e clicar MANUAL: Uma caixa do Sistema do celular com título `Erro Crítico de Captura` aparecerá contendo a stack de erro em PT_BR, sem morrer cru.
+
+---
+
+# Patch Final de Estabilização (Fechando FL-002 e FL-003)
+
+Para fechar as pontas soltas finais do Epic 2, aplicaremos as seguintes mudanças:
+
+## 1. Arquivos Exatos Que Serão Alterados
+- [src/db/queries.ts](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts)
+- [app/review.tsx](file:///C:/Users/kizin/OneDrive/Documentos/gastos/app/review.tsx)
+
+## 2. Função Nova
+Criaremos a função `getCaptureRecordById(id: string): Promise<CaptureRecord | null>` em [src/db/queries.ts](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts). Isso permitirá que a interface consulte a existência do registro antes de prosseguir com a renderização.
+
+## 3. Como Ficará a Validação do Modo Create
+Em [app/review.tsx](file:///C:/Users/kizin/OneDrive/Documentos/gastos/app/review.tsx) ([loadInitialData](file:///C:/Users/kizin/OneDrive/Documentos/gastos/app/review.tsx#35-61)), a lógica de inicialização para o modo *create* passará a ser:
+```typescript
+if (mode === 'create') {
+    if (!captureRecordId) throw new Error('ID de captura não fornecido.');
+    const record = await getCaptureRecordById(captureRecordId);
+    if (!record) throw new Error('Registro de captura não encontrado ou já processado.');
+    setLoading(false);
+}
+```
+Isso garante que um usuário abrindo a tela não verá o formulário se o banco não contiver o Capture Record base. O erro aparecerá instantaneamente com o botão "Voltar", invés de travar a tela apenas ao tentar Salvar.
+
+## 4. O Que Será Feito com [createExpense()](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#88-104)
+No arquivo [queries.ts](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts), a função não exportada / exposta [createExpense()](file:///C:/Users/kizin/OneDrive/Documentos/gastos/src/db/queries.ts#88-104) continua no código mas passará a ter um comentário JSDoc estrito:
+```typescript
+/**
+ * USO RESERVADO: Esta função não é usada no fluxo MANUAL do V1, 
+ * pois o salvamento manual ocorre via transação atômica em finalizeManualCaptureAsExpense.
+ * Mantida explicitamente para uso futuro nos fluxos complexos de QR Code e OCR.
+ */
+export async function createExpense(...)
+```
+Dessa forma, eliminamos a ambiguidade arquitetural e travamos a base para que nenhum desenvolvedor chame a criação isolada acidentalmente nas telas atuais.
