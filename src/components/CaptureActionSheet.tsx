@@ -25,6 +25,8 @@ export function CaptureActionSheet({ visible, onClose }: CaptureActionSheetProps
                 Alert.alert('Erro ao processar captura', err.message || 'Falha desconhecida no armazenamento nativo.');
                 console.error("Erro ao criar CaptureRecord", err);
             }
+        } else if (option === 'QR_CODE') {
+            router.push('/scan-qr');
         } else {
             console.log(`selected ${option}`);
         }

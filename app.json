@@ -39,7 +39,13 @@
           }
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permita que o FligLedger acesse a câmera para escanear recibos e QR Codes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

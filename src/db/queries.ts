@@ -38,6 +38,30 @@ export async function createManualCaptureRecord(): Promise<CaptureRecord> {
     return newRecord;
 }
 
+export async function createQrCaptureRecord(rawPayload: string, payloadFormat: 'URL' | 'TEXT' = 'URL'): Promise<CaptureRecord> {
+    const db = DBManager.getDB();
+    const newRecord: CaptureRecord = {
+        id: generateUUID(),
+        capture_type: 'QR_CODE',
+        captured_at: Date.now(),
+        status: 'captured', // Initial status before parser
+        media_local_path: null,
+        raw_payload: rawPayload,
+        payload_format: payloadFormat,
+        failure_reason: null
+    };
+
+    await db.runAsync(
+        `INSERT INTO CaptureRecord (id, capture_type, captured_at, status, media_local_path, raw_payload, payload_format, failure_reason) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            newRecord.id, newRecord.capture_type, newRecord.captured_at, newRecord.status,
+            newRecord.media_local_path, newRecord.raw_payload, newRecord.payload_format, newRecord.failure_reason
+        ]
+    );
+    return newRecord;
+}
+
 export async function updateCaptureRecordStatus(id: string, status: CaptureRecordStatus): Promise<void> {
     const db = DBManager.getDB();
     await db.runAsync('UPDATE CaptureRecord SET status = ? WHERE id = ?;', [status, id]);
@@ -164,5 +188,31 @@ export async function getExpenseById(id: string): Promise<Expense | null> {
 export async function getCaptureRecordById(id: string): Promise<CaptureRecord | null> {
     const db = DBManager.getDB();
     const row = await db.getFirstAsync<CaptureRecord>('SELECT * FROM CaptureRecord WHERE id = ?;', [id]);
+    return row || null;
+}
+
+export async function createProcessingSnapshot(
+    captureRecordId: string,
+    status: 'pending' | 'processing' | 'completed' | 'failed',
+    rawPayload: string | null,
+    extractedData: string | null
+): Promise<void> {
+    const db = DBManager.getDB();
+    const newId = generateUUID();
+    const now = Date.now();
+
+    await db.runAsync(
+        `INSERT INTO ProcessingSnapshot (id, capture_record_id, status, error_details, raw_payload, extracted_data, confidence_amount, confidence_merchant, confidence_date, created_at, updated_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            newId, captureRecordId, status, null, rawPayload, extractedData,
+            null, null, null, now, now
+        ]
+    );
+}
+
+export async function getProcessingSnapshotByCaptureRecordId(captureRecordId: string): Promise<any | null> {
+    const db = DBManager.getDB();
+    const row = await db.getFirstAsync<any>('SELECT * FROM ProcessingSnapshot WHERE capture_record_id = ? ORDER BY created_at DESC LIMIT 1;', [captureRecordId]);
     return row || null;
 }

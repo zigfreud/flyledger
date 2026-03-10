@@ -7,6 +7,7 @@ import {
     getActiveCategories,
     getCaptureRecordById,
     getExpenseById,
+    getProcessingSnapshotByCaptureRecordId,
     updateExpense
 } from '../src/db/queries';
 import { Category } from '../src/types/models';
@@ -28,6 +29,7 @@ export default function ReviewScreen() {
 
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [qrWarning, setQrWarning] = useState<string | null>(null);
 
     useEffect(() => {
         loadInitialData();
@@ -43,7 +45,29 @@ export default function ReviewScreen() {
                 const record = await getCaptureRecordById(captureRecordId as string);
                 if (!record) throw new Error('Registro de captura não encontrado ou já processado.');
 
-                // In create, initial state defaults (amount='', date=today) are already set
+                if (record.capture_type === 'QR_CODE') {
+                    const snapshot = await getProcessingSnapshotByCaptureRecordId(record.id);
+                    if (snapshot && snapshot.extracted_data) {
+                        try {
+                            const data = JSON.parse(snapshot.extracted_data);
+                            if (data.amount) setAmount(data.amount.toFixed(2));
+                            if (data.date) {
+                                setDate(new Date(data.date).toISOString().split('T')[0]);
+                            }
+                            if (data.merchant_name) setMerchantName(data.merchant_name);
+
+                            if (!data.amount) {
+                                setQrWarning('Leitura concluída, mas o valor não pôde ser extraído offline da URL. Por favor, digite manualmente.');
+                            }
+                        } catch (e) {
+                            setQrWarning('Erro ao decodificar dados do QR offline. Por favor, preencha manualmente.');
+                        }
+                    } else {
+                        setQrWarning('O QR Code capturado não possuía formato extraível reconhecido localmente.');
+                    }
+                }
+
+                // In create, initial state defaults (amount='', date=today) are already set if not overwritten
                 setLoading(false);
             } else if (mode === 'edit') {
                 if (!expenseId) throw new Error('ID de despesa não fornecido.');
@@ -145,6 +169,12 @@ export default function ReviewScreen() {
             </View>
 
             <ScrollView style={styles.form} keyboardShouldPersistTaps="handled">
+                {qrWarning && (
+                    <View style={styles.warningBox}>
+                        <Text style={styles.warningBoxText}>{qrWarning}</Text>
+                    </View>
+                )}
+
                 <Text style={styles.label}>Valor (R$)*</Text>
                 <TextInput
                     style={styles.input}
@@ -251,5 +281,7 @@ const styles = StyleSheet.create({
     btnSaveText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
     errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginBottom: 24 },
     backButton: { padding: 12, backgroundColor: '#EEE', borderRadius: 8 },
-    backText: { fontWeight: 'bold' }
+    backText: { fontWeight: 'bold' },
+    warningBox: { backgroundColor: '#FFF9C4', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#FBC02D' },
+    warningBoxText: { color: '#F57F17', fontSize: 13, fontWeight: '500' }
 });
