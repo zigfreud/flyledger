@@ -34,3 +34,19 @@ export async function seedCategoriesIfEmpty(db: SQLite.SQLiteDatabase) {
         console.log('Categories already seeded. Count:', result?.count);
     }
 }
+
+export async function seedDefaultSettingsIfEmpty(db: SQLite.SQLiteDatabase) {
+    const result = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM Settings;');
+
+    if (result && result.count === 0) {
+        console.log('Seeding default settings...');
+        await db.runAsync("INSERT INTO Settings (key, value) VALUES ('ai_engine', 'manual');");
+        await db.runAsync("INSERT INTO Settings (key, value) VALUES ('gemini_api_key', '');");
+        await db.runAsync("INSERT INTO Settings (key, value) VALUES ('ollama_url', 'http://192.168.1.50:11434');");
+        await db.runAsync("INSERT INTO Settings (key, value) VALUES ('langflow_url', '');");
+        await db.runAsync("INSERT INTO Settings (key, value) VALUES ('langflow_token', '');");
+        console.log('Default settings seeded successfully.');
+    } else {
+        console.log('Settings already seeded. Count:', result?.count);
+    }
+}

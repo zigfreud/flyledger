@@ -130,7 +130,7 @@ export default function DashboardScreen() {
       ) : expenses.length === 0 ? (
         <View style={styles.center}>
           <View style={styles.emptyIconBg}>
-            <Ionicons name="pie-chart-outline" size={40} color="#6366F1" />
+            <Ionicons name="pie-chart-outline" size={40} color="#8B5CF6" />
           </View>
           <Text style={styles.emptyTitle}>Sem dados para análise</Text>
           <Text style={styles.emptySubtitle}>
@@ -227,7 +227,7 @@ export default function DashboardScreen() {
                           styles.barFill, 
                           { 
                             height: barHeight,
-                            backgroundColor: index === 5 ? '#818CF8' : '#334155' // Destaque para o mês atual
+                            backgroundColor: index === 5 ? '#8B5CF6' : '#334155' // Destaque para o mês atual
                           }
                         ]} 
                       />
@@ -486,12 +486,12 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
+    borderColor: 'rgba(139, 92, 246, 0.2)',
   },
   emptyTitle: {
     fontSize: 18,

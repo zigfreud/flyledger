@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import DBManager from '../src/db/database';
 import { initDatabase } from '../src/db/init';
-import { seedCategoriesIfEmpty } from '../src/db/seed';
+import { seedCategoriesIfEmpty, seedDefaultSettingsIfEmpty } from '../src/db/seed';
 
 type AppState = 'LOADING' | 'READY' | 'ERROR';
 
@@ -19,6 +19,7 @@ export default function RootLayout() {
       const db = await DBManager.init();
       await initDatabase(db);
       await seedCategoriesIfEmpty(db);
+      await seedDefaultSettingsIfEmpty(db);
 
       setAppState('READY');
     } catch (error: any) {

@@ -49,14 +49,17 @@ export default function ReviewScreen() {
                 const record = await getCaptureRecordById(captureRecordId as string);
                 if (!record) throw new Error('Registro de captura não encontrado ou já processado.');
 
-                if (record.capture_type === 'QR_CODE') {
+                if (record.capture_type === 'QR_CODE' || record.capture_type === 'IMAGE') {
                     const snapshot = await getProcessingSnapshotByCaptureRecordId(record.id);
                     if (snapshot) {
                         try {
                             if (snapshot.suggested_amount) {
                                 setAmount(snapshot.suggested_amount.toFixed(2));
                             } else {
-                                setQrWarning('Nenhum valor financeiro extraído offline na URL capturada.');
+                                setQrWarning(record.capture_type === 'QR_CODE'
+                                    ? 'Nenhum valor financeiro extraído offline na URL capturada.'
+                                    : 'Não foi possível extrair o valor do recibo de forma automática.'
+                                );
                             }
 
                             if (snapshot.suggested_date) {
@@ -66,14 +69,17 @@ export default function ReviewScreen() {
                                 setMerchantName(snapshot.suggested_merchant);
                             }
 
-                            if (snapshot.warnings && snapshot.suggested_amount) {
+                            if (snapshot.warnings) {
                                 setQrWarning(snapshot.warnings);
                             }
                         } catch {
-                            setQrWarning('Erro na leitura de datas da base offline. Preencha manualmente.');
+                            setQrWarning('Erro no processamento dos dados sugeridos. Preencha manualmente.');
                         }
                     } else {
-                        setQrWarning('Processamento de QR incompleto ou não finalizado pela Câmera.');
+                        setQrWarning(record.capture_type === 'QR_CODE'
+                            ? 'Processamento de QR incompleto.'
+                            : 'Processamento de OCR do recibo incompleto.'
+                        );
                     }
                 }
 
@@ -343,7 +349,7 @@ const styles = StyleSheet.create({
     btnDiscardText: { color: '#F43F5E', fontWeight: 'bold', fontSize: 16 },
     btnCancel: { backgroundColor: '#1E293B', borderWidth: 1.5, borderColor: '#475569' },
     btnCancelText: { color: '#94A3B8', fontWeight: 'bold', fontSize: 16 },
-    btnSave: { backgroundColor: '#6366F1' },
+    btnSave: { backgroundColor: '#8B5CF6' },
     btnSaveText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
     errorText: { color: '#F43F5E', fontSize: 16, textAlign: 'center', marginBottom: 24, lineHeight: 22 },
     backButton: { paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#1E293B', borderRadius: 12, borderWidth: 1, borderColor: '#334155' },

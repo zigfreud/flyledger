@@ -14,7 +14,9 @@ export function CaptureActionSheet({ visible, onClose }: CaptureActionSheetProps
 
     const handleOptionSelect = async (option: string) => {
         onClose();
-        if (option === 'MANUAL') {
+        if (option === 'IMAGE') {
+            router.push('/scan-receipt' as any);
+        } else if (option === 'MANUAL') {
             try {
                 const record = await createManualCaptureRecord();
                 router.push({

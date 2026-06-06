@@ -62,6 +62,30 @@ export async function createQrCaptureRecord(rawPayload: string, payloadFormat: '
     return newRecord;
 }
 
+export async function createImageCaptureRecord(mediaLocalPath: string): Promise<CaptureRecord> {
+    const db = DBManager.getDB();
+    const newRecord: CaptureRecord = {
+        id: generateUUID(),
+        capture_type: 'IMAGE',
+        captured_at: Date.now(),
+        status: 'captured',
+        media_local_path: mediaLocalPath,
+        raw_payload: null,
+        payload_format: null,
+        failure_reason: null
+    };
+
+    await db.runAsync(
+        `INSERT INTO CaptureRecord (id, capture_type, captured_at, status, media_local_path, raw_payload, payload_format, failure_reason) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            newRecord.id, newRecord.capture_type, newRecord.captured_at, newRecord.status,
+            newRecord.media_local_path, newRecord.raw_payload, newRecord.payload_format, newRecord.failure_reason
+        ]
+    );
+    return newRecord;
+}
+
 export async function updateCaptureRecordStatus(id: string, status: CaptureRecordStatus): Promise<void> {
     const db = DBManager.getDB();
     await db.runAsync('UPDATE CaptureRecord SET status = ? WHERE id = ?;', [status, id]);
@@ -226,3 +250,25 @@ export async function getProcessingSnapshotByCaptureRecordId(captureRecordId: st
     const row = await db.getFirstAsync<ProcessingSnapshot>('SELECT * FROM ProcessingSnapshot WHERE capture_record_id = ? ORDER BY processed_at DESC LIMIT 1;', [captureRecordId]);
     return row || null;
 }
+
+export async function getSettings(): Promise<{ [key: string]: string }> {
+    const db = DBManager.getDB();
+    const rows = await db.getAllAsync<{ key: string; value: string }>('SELECT * FROM Settings;');
+    const settings: { [key: string]: string } = {};
+    rows.forEach(row => {
+        settings[row.key] = row.value;
+    });
+    return settings;
+}
+
+export async function getSettingByKey(key: string): Promise<string | null> {
+    const db = DBManager.getDB();
+    const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM Settings WHERE key = ?;', [key]);
+    return row ? row.value : null;
+}
+
+export async function updateSetting(key: string, value: string): Promise<void> {
+    const db = DBManager.getDB();
+    await db.runAsync('INSERT OR REPLACE INTO Settings (key, value) VALUES (?, ?);', [key, value]);
+}
+

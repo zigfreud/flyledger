@@ -6,7 +6,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#818CF8', // Bright Indigo
+        tabBarActiveTintColor: '#8B5CF6', // Vibrant Violet
         tabBarInactiveTintColor: '#64748B', // Slate gray
         tabBarStyle: {
           backgroundColor: '#0B0F19', // Deep dark slate
@@ -43,6 +43,15 @@ export default function TabLayout() {
           title: 'Analytics',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'pie-chart' : 'pie-chart-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="adjusts"
+        options={{
+          title: 'Ajustes',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} />
           ),
         }}
       />

@@ -146,7 +146,7 @@ export default function HomeScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconBg}>
-                <Ionicons name="sparkles-outline" size={40} color="#6366F1" />
+                <Ionicons name="sparkles-outline" size={40} color="#8B5CF6" />
               </View>
               <Text style={styles.emptyTitle}>Tudo pronto para começar!</Text>
               <Text style={styles.emptySubtitle}>
@@ -206,15 +206,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   badge: {
-    backgroundColor: 'rgba(99, 102, 241, 0.15)', // Indigo transparent badge
+    backgroundColor: 'rgba(139, 92, 246, 0.15)', // Violet transparent badge
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.3)',
+    borderColor: 'rgba(139, 92, 246, 0.3)',
   },
   badgeText: {
-    color: '#818CF8',
+    color: '#A78BFA', // Lavender
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -322,12 +322,12 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
+    borderColor: 'rgba(139, 92, 246, 0.2)',
   },
   emptyTitle: {
     fontSize: 18,
