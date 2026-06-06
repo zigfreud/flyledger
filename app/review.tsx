@@ -49,7 +49,7 @@ export default function ReviewScreen() {
                 const record = await getCaptureRecordById(captureRecordId as string);
                 if (!record) throw new Error('Registro de captura não encontrado ou já processado.');
 
-                if (record.capture_type === 'QR_CODE' || record.capture_type === 'IMAGE') {
+                if (record.capture_type === 'QR_CODE' || record.capture_type === 'IMAGE' || record.capture_type === 'MANUAL') {
                     const snapshot = await getProcessingSnapshotByCaptureRecordId(record.id);
                     if (snapshot) {
                         try {
@@ -58,7 +58,9 @@ export default function ReviewScreen() {
                             } else {
                                 setQrWarning(record.capture_type === 'QR_CODE'
                                     ? 'Nenhum valor financeiro extraído offline na URL capturada.'
-                                    : 'Não foi possível extrair o valor do recibo de forma automática.'
+                                    : (record.capture_type === 'IMAGE'
+                                        ? 'Não foi possível extrair o valor do recibo de forma automática.'
+                                        : 'Não foi possível extrair o valor da transação.')
                                 );
                             }
 
@@ -75,7 +77,7 @@ export default function ReviewScreen() {
                         } catch {
                             setQrWarning('Erro no processamento dos dados sugeridos. Preencha manualmente.');
                         }
-                    } else {
+                    } else if (record.capture_type !== 'MANUAL') {
                         setQrWarning(record.capture_type === 'QR_CODE'
                             ? 'Processamento de QR incompleto.'
                             : 'Processamento de OCR do recibo incompleto.'
