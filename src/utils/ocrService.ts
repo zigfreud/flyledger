@@ -4,6 +4,7 @@ import {
   getSettings,
   updateCaptureRecordStatus
 } from '../db/queries';
+import { predictCategory } from './categorizationService';
 
 export async function processReceiptOcr(captureRecordId: string, imageUri: string): Promise<void> {
   try {
@@ -161,6 +162,11 @@ export async function processReceiptOcr(captureRecordId: string, imageUri: strin
       }
     }
 
+    let suggestedCategoryId: string | null = null;
+    if (suggestedMerchant) {
+      suggestedCategoryId = await predictCategory(suggestedMerchant);
+    }
+
     // 4. Cria o Snapshot de processamento com as sugestões
     await createProcessingSnapshot(
       captureRecordId,
@@ -168,7 +174,8 @@ export async function processReceiptOcr(captureRecordId: string, imageUri: strin
       suggestedDate,
       suggestedAmount,
       suggestedMerchant,
-      warningMsg
+      warningMsg,
+      suggestedCategoryId
     );
 
     // 5. Finaliza marcando para review
@@ -183,7 +190,8 @@ export async function processReceiptOcr(captureRecordId: string, imageUri: strin
       null,
       null,
       null,
-      `Falha no processamento automático: ${err.message || 'Erro de conexão'}. Preencha manualmente.`
+      `Falha no processamento automático: ${err.message || 'Erro de conexão'}. Preencha manualmente.`,
+      null
     );
     await updateCaptureRecordStatus(captureRecordId, 'pending_review');
     throw err;

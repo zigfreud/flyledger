@@ -221,7 +221,8 @@ export async function createProcessingSnapshot(
     suggestedDate: number | null,
     suggestedAmount: number | null,
     suggestedMerchant: string | null,
-    warnings: string | null
+    warnings: string | null,
+    suggestedCategoryId: string | null = null
 ): Promise<void> {
     const db = DBManager.getDB();
     const newId = generateUUID();
@@ -233,14 +234,14 @@ export async function createProcessingSnapshot(
             suggested_date, suggested_date_confidence, 
             suggested_amount, suggested_amount_confidence, 
             suggested_merchant, suggested_merchant_confidence, 
-            warnings
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            suggested_category_id, warnings
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             newId, captureRecordId, now, normalizedText,
             suggestedDate, suggestedDate ? 'MEDIUM' : null,
             suggestedAmount, suggestedAmount ? 'MEDIUM' : null,
             suggestedMerchant, suggestedMerchant ? 'LOW' : null,
-            warnings
+            suggestedCategoryId, warnings
         ]
     );
 }
@@ -280,7 +281,7 @@ export async function listPendingCaptureRecords(): Promise<(CaptureRecord & { sn
                 ps.suggested_date as ps_suggested_date, ps.suggested_date_confidence as ps_suggested_date_confidence,
                 ps.suggested_amount as ps_suggested_amount, ps.suggested_amount_confidence as ps_suggested_amount_confidence,
                 ps.suggested_merchant as ps_suggested_merchant, ps.suggested_merchant_confidence as ps_suggested_merchant_confidence,
-                ps.warnings as ps_warnings
+                ps.suggested_category_id as ps_suggested_category_id, ps.warnings as ps_warnings
          FROM CaptureRecord cr
          LEFT JOIN ProcessingSnapshot ps ON cr.id = ps.capture_record_id
          WHERE cr.status = 'pending_review'
@@ -307,12 +308,13 @@ export async function listPendingCaptureRecords(): Promise<(CaptureRecord & { sn
             suggested_amount_confidence: row.ps_suggested_amount_confidence,
             suggested_merchant: row.ps_suggested_merchant,
             suggested_merchant_confidence: row.ps_suggested_merchant_confidence,
+            suggested_category_id: row.ps_suggested_category_id,
             warnings: row.ps_warnings
         } : null
     }));
 }
 
-export async function importBankTransaction(amount: number, date: number, description: string): Promise<void> {
+export async function importBankTransaction(amount: number, date: number, description: string, suggestedCategoryId: string | null = null): Promise<void> {
     const db = DBManager.getDB();
     const recordId = generateUUID();
     const snapshotId = generateUUID();
@@ -332,11 +334,11 @@ export async function importBankTransaction(amount: number, date: number, descri
                  suggested_date, suggested_date_confidence, 
                  suggested_amount, suggested_amount_confidence, 
                  suggested_merchant, suggested_merchant_confidence, 
-                 warnings
-             ) VALUES (?, ?, ?, ?, ?, 'HIGH', ?, 'HIGH', ?, 'HIGH', ?)`,
+                 suggested_category_id, warnings
+             ) VALUES (?, ?, ?, ?, ?, 'HIGH', ?, 'HIGH', ?, 'HIGH', ?, ?)`,
             [
                 snapshotId, recordId, now, `Imported bank transaction: ${description}`,
-                date, amount, description, 'Transação importada do extrato. Revise e selecione a categoria.'
+                date, amount, description, suggestedCategoryId, 'Transação importada do extrato. Revise e selecione a categoria.'
             ]
         );
 
@@ -494,6 +496,39 @@ export async function restoreBackupPayload(payload: any): Promise<{ expensesCoun
         await db.execAsync('ROLLBACK;');
         throw error;
     }
+}
+
+export async function getCategoryByMerchant(merchantName: string): Promise<string | null> {
+    if (!merchantName) return null;
+    const db = DBManager.getDB();
+    
+    const rules = await db.getAllAsync<{ merchant_pattern: string; category_id: string }>(
+        'SELECT merchant_pattern, category_id FROM MerchantRule;'
+    );
+
+    const target = merchantName.toLowerCase();
+    
+    for (const r of rules) {
+        if (target.includes(r.merchant_pattern.toLowerCase())) {
+            return r.category_id;
+        }
+    }
+
+    return null;
+}
+
+export async function saveMerchantRule(pattern: string, categoryId: string): Promise<void> {
+    if (!pattern || !categoryId) return;
+    const db = DBManager.getDB();
+    const cleanPattern = pattern.trim().toLowerCase();
+    
+    if (cleanPattern.length < 3) return;
+
+    const ruleId = generateUUID();
+    await db.runAsync(
+        'INSERT OR REPLACE INTO MerchantRule (id, merchant_pattern, category_id) VALUES (?, ?, ?);',
+        [ruleId, cleanPattern, categoryId]
+    );
 }
 
 

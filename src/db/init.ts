@@ -58,5 +58,18 @@ export async function initDatabase(db: SQLite.SQLiteDatabase) {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS MerchantRule (
+      id TEXT PRIMARY KEY,
+      merchant_pattern TEXT UNIQUE NOT NULL,
+      category_id TEXT NOT NULL REFERENCES Category(id) ON DELETE CASCADE
+    );
   `);
+
+  // Migração incremental segura para base existente
+  try {
+    await db.execAsync('ALTER TABLE ProcessingSnapshot ADD COLUMN suggested_category_id TEXT;');
+  } catch {
+    // Ignora se a coluna já existe
+  }
 }

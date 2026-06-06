@@ -16,6 +16,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { importBankTransaction } from '../src/db/queries';
 import { parseBankFile } from '../src/utils/bankParser';
+import { predictCategory } from '../src/utils/categorizationService';
 import { Fonts } from '../constants/theme';
 
 export default function BankImportScreen() {
@@ -88,7 +89,8 @@ export default function BankImportScreen() {
 
       // 3. Salva cada transação no SQLite como um CaptureRecord MANUAL com snapshot
       for (const tx of parsedTransactions) {
-        await importBankTransaction(tx.amount, tx.date, tx.description);
+        const suggestedCatId = await predictCategory(tx.description);
+        await importBankTransaction(tx.amount, tx.date, tx.description, suggestedCatId);
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
