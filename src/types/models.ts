@@ -30,6 +30,7 @@ export interface ProcessingSnapshot {
   suggested_amount_confidence: 'HIGH' | 'MEDIUM' | 'LOW' | null;
   suggested_merchant: string | null;
   suggested_merchant_confidence: 'HIGH' | 'MEDIUM' | 'LOW' | null;
+  suggested_category_id: string | null;
   warnings: string | null;
 }
 

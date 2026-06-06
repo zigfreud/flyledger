@@ -9,7 +9,8 @@ import {
     getCaptureRecordById,
     getExpenseById,
     getProcessingSnapshotByCaptureRecordId,
-    updateExpense
+    updateExpense,
+    saveMerchantRule
 } from '../src/db/queries';
 import { Category } from '../src/types/models';
 import { Fonts } from '../constants/theme';
@@ -29,6 +30,7 @@ export default function ReviewScreen() {
     const [merchantName, setMerchantName] = useState('');
     const [description, setDescription] = useState('');
     const [categoryId, setCategoryId] = useState<string | null>(null);
+    const [initialSuggestedCategoryId, setInitialSuggestedCategoryId] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -69,6 +71,10 @@ export default function ReviewScreen() {
                             }
                             if (snapshot.suggested_merchant) {
                                 setMerchantName(snapshot.suggested_merchant);
+                            }
+                            if (snapshot.suggested_category_id) {
+                                setCategoryId(snapshot.suggested_category_id);
+                                setInitialSuggestedCategoryId(snapshot.suggested_category_id);
                             }
 
                             if (snapshot.warnings) {
@@ -142,6 +148,11 @@ export default function ReviewScreen() {
                     description: description || null,
                     retained_image_path: null
                 });
+
+                // Feedback Loop: Se houve alteração ou classificação nova de categoria
+                if (merchantName && merchantName.trim() && categoryId !== initialSuggestedCategoryId) {
+                    await saveMerchantRule(merchantName, categoryId);
+                }
             } else {
                 await updateExpense(expenseId!, {
                     category_id: categoryId,
