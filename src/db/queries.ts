@@ -347,4 +347,54 @@ export async function importBankTransaction(amount: number, date: number, descri
     }
 }
 
+export async function getChatContextStats(): Promise<{
+    totalGeral30Dias: number;
+    detalheCategorias: { nome: string; valor: number; contagem: number }[];
+    maioresDespesas: { valor: number; data: string; estabelecimento: string; descricao: string }[];
+}> {
+    const db = DBManager.getDB();
+    const trintaDiasAtras = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    // 1. Total Geral últimos 30 dias
+    const rowTotal = await db.getFirstAsync<{ total: number }>(
+        `SELECT SUM(amount) as total FROM Expense WHERE date >= ?;`,
+        [trintaDiasAtras]
+    );
+    const totalGeral30Dias = rowTotal?.total || 0;
+
+    // 2. Detalhe por Categorias nos últimos 30 dias
+    const rowsCategorias = await db.getAllAsync<any>(
+        `SELECT c.name, SUM(e.amount) as total, COUNT(e.id) as contagem
+         FROM Expense e
+         JOIN Category c ON e.category_id = c.id
+         WHERE e.date >= ?
+         GROUP BY c.id
+         ORDER BY total DESC;`,
+        [trintaDiasAtras]
+    );
+    const detalheCategorias = rowsCategorias.map(row => ({
+        nome: row.name,
+        valor: row.total || 0,
+        contagem: row.contagem || 0
+    }));
+
+    // 3. Maiores despesas últimos 30 dias
+    const rowsMaiores = await db.getAllAsync<any>(
+        `SELECT amount, date, merchant_name, description
+         FROM Expense
+         WHERE date >= ?
+         ORDER BY amount DESC
+         LIMIT 5;`,
+        [trintaDiasAtras]
+    );
+    const maioresDespesas = rowsMaiores.map(row => ({
+        valor: row.amount,
+        data: new Date(row.date).toLocaleDateString('pt-BR'),
+        estabelecimento: row.merchant_name || 'Sem estabelecimento',
+        descricao: row.description || ''
+    }));
+
+    return { totalGeral30Dias, detalheCategorias, maioresDespesas };
+}
+
 
