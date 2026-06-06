@@ -397,4 +397,103 @@ export async function getChatContextStats(): Promise<{
     return { totalGeral30Dias, detalheCategorias, maioresDespesas };
 }
 
+export async function getBackupPayload(): Promise<any> {
+    const db = DBManager.getDB();
+    const expenses = await db.getAllAsync('SELECT * FROM Expense;');
+    const categories = await db.getAllAsync('SELECT * FROM Category;');
+    const settings = await db.getAllAsync('SELECT * FROM Settings;');
+    const captures = await db.getAllAsync('SELECT * FROM CaptureRecord;');
+    const snapshots = await db.getAllAsync('SELECT * FROM ProcessingSnapshot;');
+
+    return {
+        version: 1,
+        exported_at: Date.now(),
+        expenses,
+        categories,
+        settings,
+        captures,
+        snapshots
+    };
+}
+
+export async function restoreBackupPayload(payload: any): Promise<{ expensesCount: number }> {
+    const db = DBManager.getDB();
+
+    if (!payload || payload.version !== 1) {
+        throw new Error('Formato de backup inválido ou versão não suportada.');
+    }
+
+    const { expenses, categories, settings, captures, snapshots } = payload;
+
+    if (!Array.isArray(expenses) || !Array.isArray(categories) || !Array.isArray(settings) || !Array.isArray(captures) || !Array.isArray(snapshots)) {
+        throw new Error('Estrutura de dados do backup corrompida.');
+    }
+
+    await db.execAsync('BEGIN TRANSACTION;');
+    try {
+        // 1. Restaurar Categorias
+        for (const cat of categories) {
+            await db.runAsync(
+                'INSERT OR REPLACE INTO Category (id, name, icon, color, is_active) VALUES (?, ?, ?, ?, ?);',
+                [cat.id, cat.name, cat.icon, cat.color, cat.is_active !== undefined ? cat.is_active : 1]
+            );
+        }
+
+        // 2. Restaurar Settings
+        for (const set of settings) {
+            await db.runAsync(
+                'INSERT OR REPLACE INTO Settings (key, value) VALUES (?, ?);',
+                [set.key, set.value]
+            );
+        }
+
+        // 3. Restaurar CaptureRecords
+        for (const cap of captures) {
+            await db.runAsync(
+                `INSERT OR REPLACE INTO CaptureRecord (id, capture_type, captured_at, status, media_local_path, raw_payload, payload_format, failure_reason) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+                [cap.id, cap.capture_type, cap.captured_at, cap.status, cap.media_local_path, cap.raw_payload, cap.payload_format, cap.failure_reason]
+            );
+        }
+
+        // 4. Restaurar ProcessingSnapshots
+        for (const snap of snapshots) {
+            await db.runAsync(
+                `INSERT OR REPLACE INTO ProcessingSnapshot (
+                     id, capture_record_id, processed_at, normalized_text, 
+                     suggested_date, suggested_date_confidence, 
+                     suggested_amount, suggested_amount_confidence, 
+                     suggested_merchant, suggested_merchant_confidence, 
+                     warnings
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+                [
+                    snap.id, snap.capture_record_id, snap.processed_at, snap.normalized_text,
+                    snap.suggested_date, snap.suggested_date_confidence,
+                    snap.suggested_amount, snap.suggested_amount_confidence,
+                    snap.suggested_merchant, snap.suggested_merchant_confidence,
+                    snap.warnings
+                ]
+            );
+        }
+
+        // 5. Restaurar Expenses
+        for (const exp of expenses) {
+            await db.runAsync(
+                `INSERT OR REPLACE INTO Expense (id, capture_record_id, category_id, amount, date, merchant_name, description, retained_image_path, created_at, updated_at) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+                [
+                    exp.id, exp.capture_record_id, exp.category_id, exp.amount, exp.date,
+                    exp.merchant_name, exp.description, exp.retained_image_path, exp.created_at, exp.updated_at
+                ]
+            );
+        }
+
+        await db.execAsync('COMMIT;');
+        return { expensesCount: expenses.length };
+    } catch (error) {
+        await db.execAsync('ROLLBACK;');
+        throw error;
+    }
+}
+
 
