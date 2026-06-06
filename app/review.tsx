@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import {
     discardCaptureRecord,
     finalizeCaptureAsExpense,
@@ -11,6 +12,8 @@ import {
     updateExpense
 } from '../src/db/queries';
 import { Category } from '../src/types/models';
+import { Fonts } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ReviewScreen() {
     const router = useRouter();
@@ -33,6 +36,7 @@ export default function ReviewScreen() {
 
     useEffect(() => {
         loadInitialData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const loadInitialData = async () => {
@@ -65,7 +69,7 @@ export default function ReviewScreen() {
                             if (snapshot.warnings && snapshot.suggested_amount) {
                                 setQrWarning(snapshot.warnings);
                             }
-                        } catch (e) {
+                        } catch {
                             setQrWarning('Erro na leitura de datas da base offline. Preencha manualmente.');
                         }
                     } else {
@@ -73,7 +77,6 @@ export default function ReviewScreen() {
                     }
                 }
 
-                // In create, initial state defaults (amount='', date=today) are already set if not overwritten
                 setLoading(false);
             } else if (mode === 'edit') {
                 if (!expenseId) throw new Error('ID de despesa não fornecido.');
@@ -97,23 +100,29 @@ export default function ReviewScreen() {
         try {
             const numAmount = parseFloat(amount.replace(',', '.'));
             if (isNaN(numAmount) || numAmount <= 0) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                 Alert.alert('Valor Inválido', 'O valor deve ser maior que zero.');
                 return;
             }
             if (!categoryId) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                 Alert.alert('Categoria Obrigatória', 'Selecione uma categoria para salvar.');
                 return;
             }
             if (!date) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                 Alert.alert('Data Inválida', 'Preencha uma data válida.');
                 return;
             }
 
             const parsedDate = new Date(date).getTime();
             if (isNaN(parsedDate)) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                 Alert.alert('Data Inválida', 'A data informada não possui um formato correto numérico.');
                 return;
             }
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
             if (mode === 'create') {
                 await finalizeCaptureAsExpense({
@@ -135,9 +144,9 @@ export default function ReviewScreen() {
                 });
             }
 
-            // Always go back to Home (removing review from stack)
             router.replace('/(tabs)');
         } catch (err: any) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             Alert.alert('Erro ao Salvar', err.message);
         }
     };
@@ -145,6 +154,7 @@ export default function ReviewScreen() {
     const handleDiscard = async () => {
         if (mode === 'create') {
             try {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                 await discardCaptureRecord(captureRecordId!);
                 router.replace('/(tabs)');
             } catch (err: any) {
@@ -153,13 +163,23 @@ export default function ReviewScreen() {
         }
     };
 
+    const selectCategory = (catId: string) => {
+        setCategoryId(catId);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    };
+
     if (loading) {
-        return <View style={styles.center}><Text>Carregando...</Text></View>;
+        return (
+            <View style={styles.center}>
+                <Text style={styles.loadingText}>Carregando...</Text>
+            </View>
+        );
     }
 
     if (errorMsg) {
         return (
             <View style={styles.center}>
+                <Ionicons name="alert-circle-outline" size={60} color="#F43F5E" style={{ marginBottom: 16 }} />
                 <Text style={styles.errorText}>{errorMsg}</Text>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Text style={styles.backText}>Voltar</Text>
@@ -171,12 +191,19 @@ export default function ReviewScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>{mode === 'create' ? 'Nova Despesa' : 'Editar Despesa'}</Text>
+                <TouchableOpacity onPress={() => router.back()} style={styles.headerBackButton}>
+                    <Ionicons name="arrow-back" size={24} color="#FFF" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>
+                    {mode === 'create' ? 'Nova Despesa' : 'Editar Despesa'}
+                </Text>
+                <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView style={styles.form} keyboardShouldPersistTaps="handled">
+            <ScrollView style={styles.form} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 {qrWarning && (
                     <View style={styles.warningBox}>
+                        <Ionicons name="warning-outline" size={20} color="#F59E0B" style={{ marginRight: 8 }} />
                         <Text style={styles.warningBoxText}>{qrWarning}</Text>
                     </View>
                 )}
@@ -188,6 +215,7 @@ export default function ReviewScreen() {
                     onChangeText={setAmount}
                     keyboardType="numeric"
                     placeholder="0.00"
+                    placeholderTextColor="#475569"
                     autoFocus={mode === 'create'}
                 />
 
@@ -197,6 +225,7 @@ export default function ReviewScreen() {
                     value={date}
                     onChangeText={setDate}
                     placeholder="YYYY-MM-DD"
+                    placeholderTextColor="#475569"
                 />
 
                 <Text style={styles.label}>Estabelecimento (Opcional)</Text>
@@ -205,6 +234,7 @@ export default function ReviewScreen() {
                     value={merchantName}
                     onChangeText={setMerchantName}
                     placeholder="Ex: Padaria do Bairro"
+                    placeholderTextColor="#475569"
                 />
 
                 <Text style={styles.label}>Descrição (Opcional)</Text>
@@ -213,27 +243,40 @@ export default function ReviewScreen() {
                     value={description}
                     onChangeText={setDescription}
                     placeholder="Ex: Pão de Queijo"
+                    placeholderTextColor="#475569"
                 />
 
                 <Text style={styles.label}>Categoria*</Text>
                 <View style={styles.categoriesContainer}>
-                    {categories.map((cat) => (
-                        <TouchableOpacity
-                            key={cat.id}
-                            style={[
-                                styles.categoryChip,
-                                categoryId === cat.id && styles.categoryChipSelected
-                            ]}
-                            onPress={() => setCategoryId(cat.id)}
-                        >
-                            <Text style={[
-                                styles.categoryText,
-                                categoryId === cat.id && styles.categoryTextSelected
-                            ]}>
-                                {cat.name}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
+                    {categories.map((cat) => {
+                        const isSelected = categoryId === cat.id;
+                        return (
+                            <TouchableOpacity
+                                key={cat.id}
+                                style={[
+                                    styles.categoryChip,
+                                    {
+                                        borderColor: isSelected ? cat.color : '#334155',
+                                        backgroundColor: isSelected ? cat.color : '#1E293B',
+                                    }
+                                ]}
+                                onPress={() => selectCategory(cat.id)}
+                            >
+                                <Ionicons
+                                    name={cat.icon as any}
+                                    size={16}
+                                    color={isSelected ? '#FFF' : cat.color}
+                                    style={{ marginRight: 6 }}
+                                />
+                                <Text style={[
+                                    styles.categoryText,
+                                    { color: isSelected ? '#FFF' : '#E2E8F0' }
+                                ]}>
+                                    {cat.name}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
             </ScrollView>
 
@@ -248,7 +291,9 @@ export default function ReviewScreen() {
                     </TouchableOpacity>
                 )}
                 <TouchableOpacity style={[styles.btn, styles.btnSave]} onPress={handleSave}>
-                    <Text style={styles.btnSaveText}>{mode === 'create' ? 'Salvar' : 'Salvar Alterações'}</Text>
+                    <Text style={styles.btnSaveText}>
+                        {mode === 'create' ? 'Confirmar' : 'Salvar'}
+                    </Text>
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -256,38 +301,63 @@ export default function ReviewScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#FFF' },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-    header: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#EEE' },
-    headerTitle: { fontSize: 20, fontWeight: 'bold' },
-    form: { padding: 16 },
-    label: { fontSize: 14, color: '#666', marginBottom: 6, marginTop: 12, fontWeight: '500' },
-    input: { borderWidth: 1, borderColor: '#DDD', borderRadius: 8, padding: 12, fontSize: 16 },
-    categoriesContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-    categoryChip: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        backgroundColor: '#F5F5F5',
-        marginRight: 8,
-        marginBottom: 8,
-        borderWidth: 1,
-        borderColor: '#E0E0E0'
+    container: { flex: 1, backgroundColor: '#0B0F19' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#0B0F19' },
+    loadingText: { color: '#94A3B8', fontSize: 16 },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1E293B',
     },
-    categoryChipSelected: { backgroundColor: '#E3F2FD', borderColor: '#2196F3' },
-    categoryText: { color: '#666', fontWeight: '500' },
-    categoryTextSelected: { color: '#1976D2', fontWeight: 'bold' },
-    footer: { flexDirection: 'row', padding: 16, borderTopWidth: 1, borderTopColor: '#EEE' },
-    btn: { flex: 1, padding: 16, borderRadius: 8, alignItems: 'center', marginHorizontal: 4 },
-    btnDiscard: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#D32F2F' },
-    btnDiscardText: { color: '#D32F2F', fontWeight: 'bold', fontSize: 16 },
-    btnCancel: { backgroundColor: '#E0E0E0', borderWidth: 0 },
-    btnCancelText: { color: '#424242', fontWeight: 'bold', fontSize: 16 },
-    btnSave: { backgroundColor: '#2196F3' },
+    headerBackButton: {
+        padding: 8,
+    },
+    headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#FFF', fontFamily: Fonts.rounded },
+    form: { padding: 20 },
+    label: { fontSize: 13, color: '#94A3B8', marginBottom: 8, marginTop: 16, fontWeight: '600', letterSpacing: 0.2 },
+    input: {
+        backgroundColor: '#1E293B',
+        borderWidth: 1,
+        borderColor: '#334155',
+        borderRadius: 12,
+        padding: 14,
+        fontSize: 16,
+        color: '#F8FAFC',
+    },
+    categoriesContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 8 },
+    categoryChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 24,
+        borderWidth: 1.5,
+    },
+    categoryText: { fontWeight: '600', fontSize: 14 },
+    footer: { flexDirection: 'row', padding: 20, borderTopWidth: 1, borderTopColor: '#1E293B', gap: 12 },
+    btn: { flex: 1, padding: 16, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    btnDiscard: { backgroundColor: '#1E293B', borderWidth: 1.5, borderColor: '#F43F5E' },
+    btnDiscardText: { color: '#F43F5E', fontWeight: 'bold', fontSize: 16 },
+    btnCancel: { backgroundColor: '#1E293B', borderWidth: 1.5, borderColor: '#475569' },
+    btnCancelText: { color: '#94A3B8', fontWeight: 'bold', fontSize: 16 },
+    btnSave: { backgroundColor: '#6366F1' },
     btnSaveText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
-    errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginBottom: 24 },
-    backButton: { padding: 12, backgroundColor: '#EEE', borderRadius: 8 },
-    backText: { fontWeight: 'bold' },
-    warningBox: { backgroundColor: '#FFF9C4', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#FBC02D' },
-    warningBoxText: { color: '#F57F17', fontSize: 13, fontWeight: '500' }
+    errorText: { color: '#F43F5E', fontSize: 16, textAlign: 'center', marginBottom: 24, lineHeight: 22 },
+    backButton: { paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#1E293B', borderRadius: 12, borderWidth: 1, borderColor: '#334155' },
+    backText: { color: '#FFF', fontWeight: 'bold' },
+    warningBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+        padding: 14,
+        borderRadius: 14,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.3)',
+    },
+    warningBoxText: { color: '#FBBF24', fontSize: 13, fontWeight: '500', flex: 1, lineHeight: 18 }
 });
+

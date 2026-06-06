@@ -41,7 +41,7 @@ export function extractQrSuggestions(rawPayload: string): { amount?: number; dat
             suggestions.date = new Date(year, month, day).getTime();
         }
 
-    } catch (e) {
+    } catch {
         // Fallback silencioso offline.
     }
 
