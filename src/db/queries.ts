@@ -272,3 +272,79 @@ export async function updateSetting(key: string, value: string): Promise<void> {
     await db.runAsync('INSERT OR REPLACE INTO Settings (key, value) VALUES (?, ?);', [key, value]);
 }
 
+export async function listPendingCaptureRecords(): Promise<(CaptureRecord & { snapshot: ProcessingSnapshot | null })[]> {
+    const db = DBManager.getDB();
+    const records = await db.getAllAsync<any>(
+        `SELECT cr.*, 
+                ps.id as ps_id, ps.processed_at as ps_processed_at, ps.normalized_text as ps_normalized_text,
+                ps.suggested_date as ps_suggested_date, ps.suggested_date_confidence as ps_suggested_date_confidence,
+                ps.suggested_amount as ps_suggested_amount, ps.suggested_amount_confidence as ps_suggested_amount_confidence,
+                ps.suggested_merchant as ps_suggested_merchant, ps.suggested_merchant_confidence as ps_suggested_merchant_confidence,
+                ps.warnings as ps_warnings
+         FROM CaptureRecord cr
+         LEFT JOIN ProcessingSnapshot ps ON cr.id = ps.capture_record_id
+         WHERE cr.status = 'pending_review'
+         ORDER BY cr.captured_at DESC;`
+    );
+
+    return records.map(row => ({
+        id: row.id,
+        capture_type: row.capture_type,
+        captured_at: row.captured_at,
+        status: row.status,
+        media_local_path: row.media_local_path,
+        raw_payload: row.raw_payload,
+        payload_format: row.payload_format,
+        failure_reason: row.failure_reason,
+        snapshot: row.ps_id ? {
+            id: row.ps_id,
+            capture_record_id: row.id,
+            processed_at: row.ps_processed_at,
+            normalized_text: row.ps_normalized_text,
+            suggested_date: row.ps_suggested_date,
+            suggested_date_confidence: row.ps_suggested_date_confidence,
+            suggested_amount: row.ps_suggested_amount,
+            suggested_amount_confidence: row.ps_suggested_amount_confidence,
+            suggested_merchant: row.ps_suggested_merchant,
+            suggested_merchant_confidence: row.ps_suggested_merchant_confidence,
+            warnings: row.ps_warnings
+        } : null
+    }));
+}
+
+export async function importBankTransaction(amount: number, date: number, description: string): Promise<void> {
+    const db = DBManager.getDB();
+    const recordId = generateUUID();
+    const snapshotId = generateUUID();
+    const now = Date.now();
+
+    await db.execAsync('BEGIN TRANSACTION;');
+    try {
+        await db.runAsync(
+            `INSERT INTO CaptureRecord (id, capture_type, captured_at, status, media_local_path, raw_payload, payload_format, failure_reason) 
+             VALUES (?, 'MANUAL', ?, 'pending_review', NULL, ?, 'TEXT', NULL)`,
+            [recordId, now, `Import: ${description}`]
+        );
+
+        await db.runAsync(
+            `INSERT INTO ProcessingSnapshot (
+                 id, capture_record_id, processed_at, normalized_text, 
+                 suggested_date, suggested_date_confidence, 
+                 suggested_amount, suggested_amount_confidence, 
+                 suggested_merchant, suggested_merchant_confidence, 
+                 warnings
+             ) VALUES (?, ?, ?, ?, ?, 'HIGH', ?, 'HIGH', ?, 'HIGH', ?)`,
+            [
+                snapshotId, recordId, now, `Imported bank transaction: ${description}`,
+                date, amount, description, 'Transação importada do extrato. Revise e selecione a categoria.'
+            ]
+        );
+
+        await db.execAsync('COMMIT;');
+    } catch (error) {
+        await db.execAsync('ROLLBACK;');
+        throw error;
+    }
+}
+
+

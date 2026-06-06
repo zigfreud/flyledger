@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, SafeAreaView } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, SafeAreaView, ScrollView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { CaptureActionSheet } from '../../src/components/CaptureActionSheet';
 import { FAB } from '../../src/components/FAB';
-import { listExpensesOrderedByDate } from '../../src/db/queries';
+import { listExpensesOrderedByDate, listPendingCaptureRecords } from '../../src/db/queries';
 import { Category, Expense } from '../../src/types/models';
 import { Fonts } from '../../constants/theme';
 
@@ -15,6 +15,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [isActionSheetVisible, setActionSheetVisible] = useState(false);
   const [expenses, setExpenses] = useState<ExpenseWithCategory[]>([]);
+  const [pendingRecords, setPendingRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -27,6 +28,9 @@ export default function HomeScreen() {
     try {
       const data = await listExpensesOrderedByDate();
       setExpenses(data);
+
+      const pending = await listPendingCaptureRecords();
+      setPendingRecords(pending);
     } catch (err) {
       console.error("Erro ao carregar despesas:", err);
     } finally {
@@ -123,6 +127,68 @@ export default function HomeScreen() {
           </View>
         </View>
       </View>
+
+      {/* Fila de Pendentes de Revisão */}
+      {pendingRecords.length > 0 && (
+        <View style={styles.pendingSection}>
+          <Text style={styles.pendingSectionTitle}>
+            Aguardando Revisão ({pendingRecords.length})
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.pendingScrollContent}
+          >
+            {pendingRecords.map((item) => {
+              const displayTitle = item.snapshot?.suggested_merchant || 
+                (item.capture_type === 'QR_CODE' ? 'QR Code Fiscal' : 
+                 item.capture_type === 'IMAGE' ? 'Foto de Recibo' : 'Lançamento Manual');
+              const displayAmt = item.snapshot?.suggested_amount !== null && item.snapshot?.suggested_amount !== undefined
+                ? `R$ ${item.snapshot.suggested_amount.toFixed(2).replace('.', ',')}`
+                : 'Pendente';
+              
+              let iconName = 'document-text-outline';
+              let iconColor = '#FBBF24'; // Yellow for manual/bank
+              if (item.capture_type === 'IMAGE') {
+                iconName = 'camera-outline';
+                iconColor = '#8B5CF6'; // Violet for photo
+              } else if (item.capture_type === 'QR_CODE') {
+                iconName = 'qr-code-outline';
+                iconColor = '#F43F5E'; // Rose for QR
+              }
+
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.pendingCard}
+                  onPress={() => router.push({
+                    pathname: '/review',
+                    params: { mode: 'create', captureRecordId: item.id }
+                  } as any)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.pendingCardHeader}>
+                    <View style={[styles.pendingIconBg, { backgroundColor: `${iconColor}20` }]}>
+                      <Ionicons name={iconName as any} size={16} color={iconColor} />
+                    </View>
+                    <Text style={styles.pendingAmtText} numberOfLines={1}>{displayAmt}</Text>
+                  </View>
+                  <Text style={styles.pendingTitleText} numberOfLines={1}>
+                    {displayTitle}
+                  </Text>
+                  <Text style={styles.pendingDateText}>
+                    {new Date(item.captured_at).toLocaleDateString('pt-BR')}
+                  </Text>
+                  <View style={styles.pendingCardFooter}>
+                    <Text style={styles.pendingActionLabel}>Revisar</Text>
+                    <Ionicons name="chevron-forward" size={12} color="#8B5CF6" />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       <Text style={styles.sectionTitle}>Transações Recentes</Text>
     </View>
@@ -341,6 +407,77 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  pendingSection: {
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  pendingSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 12,
+    letterSpacing: -0.2,
+  },
+  pendingScrollContent: {
+    paddingRight: 20, // offset for scroll
+    gap: 12,
+  },
+  pendingCard: {
+    width: 170,
+    backgroundColor: '#1E293B',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  pendingCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  pendingIconBg: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pendingAmtText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: Fonts.rounded,
+  },
+  pendingTitleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F8FAFC',
+    marginBottom: 2,
+  },
+  pendingDateText: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  pendingCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  pendingActionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#A78BFA', // Violet/Lavender highlight
   },
 });
 
